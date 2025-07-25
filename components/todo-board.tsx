@@ -25,13 +25,7 @@ interface User {
   full_name?: string;
 }
 
-interface FilterCriteria {
-  keyword?: string;
-  priority?: string;
-  completed?: boolean;
-  assignedToMe?: boolean;
-  createdByMe?: boolean;
-}
+
 
 export function TodoBoard() {
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -39,7 +33,7 @@ export function TodoBoard() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
   const [availableUsers, setAvailableUsers] = useState<User[]>([]);
-  const [currentFilter, setCurrentFilter] = useState<FilterCriteria | null>(null);
+
   const [shownTodoIds, setShownTodoIds] = useState<string[] | null>(null);
   const supabase = createClient();
 
@@ -184,37 +178,7 @@ export function TodoBoard() {
     }
   };
 
-  // AI-powered filtering
-  const applyFilter = useCallback(async (todoList: Todo[], criteria: FilterCriteria) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    return todoList.filter(todo => {
-      if (criteria.keyword && !todo.title.toLowerCase().includes(criteria.keyword.toLowerCase())) {
-        return false;
-      }
-      if (criteria.completed !== undefined && todo.completed !== criteria.completed) {
-        return false;
-      }
-      if (criteria.assignedToMe !== undefined && user) {
-        return criteria.assignedToMe ? todo.assigned_user_id === user.id : todo.assigned_user_id !== user.id;
-      }
-      if (criteria.createdByMe !== undefined && user) {
-        return criteria.createdByMe ? todo.user_id === user.id : todo.user_id !== user.id;
-      }
-      return true;
-    });
-  }, [supabase]);
 
-  const filterTodos = useCallback(async (criteria: FilterCriteria) => {
-    setCurrentFilter(criteria);
-    const filtered = await applyFilter(allTodos, criteria);
-    setTodos(filtered);
-  }, [allTodos, applyFilter]);
-
-  const clearFilter = () => {
-    setCurrentFilter(null);
-    setTodos(allTodos);
-  };
 
   // AI-powered batch completion
   const completeTodos = async (criteria: string) => {
@@ -305,8 +269,8 @@ export function TodoBoard() {
     // Update local state immediately for smooth UX
     setTodos(newOrder);
     
-    // Also update allTodos if no filter is applied
-    if (!currentFilter) {
+    // Also update allTodos if no show filter is applied
+    if (!shownTodoIds) {
       setAllTodos(newOrder);
     }
     
@@ -337,6 +301,11 @@ export function TodoBoard() {
     setTodos(filteredTodos);
   }, [allTodos]);
 
+  const clearShow = () => {
+    setShownTodoIds(null);
+    setTodos(allTodos);
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -357,29 +326,26 @@ export function TodoBoard() {
              <AICommandBar 
          availableUsers={availableUsers}
          onCreateTodos={createTodos}
-         onFilterTodos={filterTodos}
+         onShowTodos={showTodos}
          onCompleteTodos={completeTodos}
        />
 
       <AddTodoForm onAdd={addTodo} isLoading={isAdding} availableUsers={availableUsers} />
 
-      {currentFilter && (
+      {shownTodoIds && (
         <div className="mb-4 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
           <div className="flex items-center justify-between">
             <div className="text-sm">
-              <span className="font-medium text-purple-900 dark:text-purple-100">Filter active:</span>
+              <span className="font-medium text-purple-900 dark:text-purple-100">Showing:</span>
               <span className="ml-1 text-purple-700 dark:text-purple-300">
-                {Object.entries(currentFilter)
-                  .filter(([, value]) => value !== undefined)
-                  .map(([key, value]) => `${key}: ${value}`)
-                  .join(', ')}
+                {shownTodoIds.length} todos
               </span>
             </div>
             <button
-              onClick={clearFilter}
+              onClick={clearShow}
               className="text-xs text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-200 font-medium"
             >
-              Clear filter
+              Clear show
             </button>
           </div>
         </div>
@@ -388,7 +354,7 @@ export function TodoBoard() {
       {todos.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
           <p className="text-lg mb-2">🎯</p>
-          <p>{currentFilter ? 'No todos match your filter.' : 'No todos yet. Add your first task above!'}</p>
+          <p>{shownTodoIds ? 'No todos match your selection.' : 'No todos yet. Add your first task above!'}</p>
         </div>
       ) : (
         <Reorder.Group

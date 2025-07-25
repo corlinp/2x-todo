@@ -19,13 +19,7 @@ interface User {
 
 
 
-interface FilterCriteria {
-  keyword?: string;
-  priority?: string;
-  completed?: boolean;
-  assignedToMe?: boolean;
-  createdByMe?: boolean;
-}
+
 
 interface AICommandBarProps {
   availableUsers: User[];
@@ -181,39 +175,30 @@ export function AICommandBar({ availableUsers, onCreateTodos, onShowTodos, onCom
             )}
           </Button>
         </form>
-      </div>
 
-      {/* Preview Modal */}
-      <AnimatePresence>
-        {previewData && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
-            onClick={handleCancel}
-          >
+        {/* In-line Preview */}
+        <AnimatePresence>
+          {previewData && (
             <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="w-full max-w-md"
-              onClick={(e) => e.stopPropagation()}
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="mt-4"
             >
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-purple-500" />
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-sm">
+                    <Sparkles className="w-4 h-4 text-purple-500" />
                     {previewData.type === 'function_call' ? 'AI Command Preview' : 'AI Response'}
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="text-xs">
                     &ldquo;{previewData.raw_command}&rdquo;
                   </CardDescription>
                 </CardHeader>
                 
-                <CardContent>
+                <CardContent className="pt-0 pb-3">
                   {previewData.type === 'function_call' && previewData.preview ? (
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                       <div>
                         <h3 className="font-medium text-sm text-muted-foreground mb-2">
                           {previewData.preview.title}
@@ -227,40 +212,40 @@ export function AICommandBar({ availableUsers, onCreateTodos, onShowTodos, onCom
                       {previewData.function === 'create_todos' && previewData.arguments?.todos && (
                         <div className="space-y-2">
                           <h4 className="text-xs font-medium text-muted-foreground">Todo Details:</h4>
-                                                     {previewData.arguments.todos?.map((todo, index: number) => (
-                             <div key={index} className="flex items-center gap-2 text-sm p-2 bg-muted rounded">
-                               <div className="flex-1">{todo.title}</div>
-                               <div className="flex gap-2 items-center">
-                                 {todo.priority && (
-                                   <Badge variant="secondary" className={getPriorityColor(todo.priority)}>
-                                     {todo.priority}
-                                   </Badge>
-                                 )}
-                                 {todo.assignedUserEmail && (
-                                   <div className="flex items-center gap-1">
-                                     {(() => {
-                                       const assignedUser = availableUsers.find(u => u.email === todo.assignedUserEmail);
-                                       if (assignedUser) {
-                                         return (
-                                           <>
-                                             <UserAvatar user={assignedUser} size="sm" />
-                                             <span className="text-xs text-muted-foreground">
-                                               {assignedUser.name || assignedUser.full_name || assignedUser.email.split('@')[0]}
-                                             </span>
-                                           </>
-                                         );
-                                       }
-                                       return (
-                                         <span className="text-xs text-muted-foreground">
-                                           {todo.assignedUserEmail}
-                                         </span>
-                                       );
-                                     })()}
-                                   </div>
-                                 )}
-                               </div>
-                             </div>
-                           ))}
+                          {previewData.arguments.todos?.map((todo, index: number) => (
+                            <div key={index} className="flex items-center gap-2 text-sm p-2 bg-muted rounded">
+                              <div className="flex-1">{todo.title}</div>
+                              <div className="flex gap-2 items-center">
+                                {todo.priority && (
+                                  <Badge variant="secondary" className={getPriorityColor(todo.priority)}>
+                                    {todo.priority}
+                                  </Badge>
+                                )}
+                                {todo.assignedUserEmail && (
+                                  <div className="flex items-center gap-1">
+                                    {(() => {
+                                      const assignedUser = availableUsers.find(u => u.email === todo.assignedUserEmail);
+                                      if (assignedUser) {
+                                        return (
+                                          <>
+                                            <UserAvatar user={assignedUser} size="sm" />
+                                            <span className="text-xs text-muted-foreground">
+                                              {assignedUser.name || assignedUser.full_name || assignedUser.email.split('@')[0]}
+                                            </span>
+                                          </>
+                                        );
+                                      }
+                                      return (
+                                        <span className="text-xs text-muted-foreground">
+                                          {todo.assignedUserEmail}
+                                        </span>
+                                      );
+                                    })()}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>
@@ -271,14 +256,15 @@ export function AICommandBar({ availableUsers, onCreateTodos, onShowTodos, onCom
                   )}
                 </CardContent>
 
-                <CardFooter className="flex gap-2">
+                <CardFooter className="flex gap-2 pt-0">
                   <Button
                     variant="outline"
                     onClick={handleCancel}
                     className="flex-1"
                     disabled={isApplying}
+                    size="sm"
                   >
-                    <X className="w-4 h-4 mr-2" />
+                    <X className="w-3 h-3 mr-1" />
                     Cancel
                   </Button>
                   
@@ -287,11 +273,12 @@ export function AICommandBar({ availableUsers, onCreateTodos, onShowTodos, onCom
                       onClick={handleApply}
                       className="flex-1 bg-purple-600 hover:bg-purple-700"
                       disabled={isApplying}
+                      size="sm"
                     >
                       {isApplying ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
                       ) : (
-                        <Check className="w-4 h-4 mr-2" />
+                        <Check className="w-3 h-3 mr-1" />
                       )}
                       Apply
                     </Button>
@@ -299,9 +286,9 @@ export function AICommandBar({ availableUsers, onCreateTodos, onShowTodos, onCom
                 </CardFooter>
               </Card>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>
+      </div>
     </>
   );
 } 

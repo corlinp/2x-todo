@@ -139,7 +139,13 @@ Current user email: ${user.email}`;
           
 Context: ${contextMessage}
 
+CRITICAL: Always assume user input is either creating a TODO or filtering/showing existing TODOs. When in doubt, CREATE A TODO.
+
 Guidelines:
+- DEFAULT BEHAVIOR: If unclear what the user wants, create a todo with their text
+- NEVER return a plain message - always call a function
+- For ANY text that could be a task, create a todo (even if vague or unclear)
+- Only use show_todos for explicit filtering requests like "show X" or "display Y"
 - For creating todos, extract clear, actionable titles
 - Infer priority from keywords like "urgent", "asap", "important", "later", "minor"
 - For multiple todos in one command, create separate items
@@ -149,17 +155,24 @@ Guidelines:
 - Use show_todos to display specific todos based on any criteria (keyword, priority, status, assignment, etc.)
 - Always preserve the user's original intent while making it actionable
 
+EXAMPLES OF TODO CREATION (always create, never message):
+"clean garage" → create_todos with title "clean garage"
+"I need to call mom" → create_todos with title "call mom"
+"meeting prep" → create_todos with title "meeting prep"
+"fix the sink urgent" → create_todos with high priority
+"tell john to review docs" → create_todos assigned to john
+
+EXAMPLES OF FILTERING (only when explicitly requested):
+"Show kitchen chores only" → show_todos with IDs of todos that relate to kitchen chores
+"Show urgent tasks" → show_todos with IDs of todos with high/urgent priority
+"Show my completed tasks" → show_todos with IDs of completed todos
+"Display everything Sarah is working on" → show_todos with IDs assigned to Sarah
+
 User Assignment Examples:
 "Add urgent task to clean garage for john@company.com" → assign to john@company.com
 "Tell Sarah to review the documents" → assign to closest matching email containing "sarah"
 "Give the meeting prep to mike" → assign to closest matching email containing "mike"
 "John should clean the kitchen and Mary should take out trash" → 2 todos with respective assignments
-
-Show/Filter Examples:
-"Show kitchen chores only" → show_todos with IDs of todos containing "kitchen"
-"Show urgent tasks" → show_todos with IDs of todos with high/urgent priority
-"Show my completed tasks" → show_todos with IDs of completed todos assigned to current user
-"Show everything Sarah is working on" → show_todos with IDs of todos assigned to Sarah
 
 Other Examples:
 "Add 'Clean the gutters' urgent" → create_todos with high priority
@@ -179,10 +192,24 @@ Other Examples:
     const choice = completion.choices[0];
     
     if (!choice.message.function_call) {
-      return NextResponse.json({
-        type: 'message',
-        content: choice.message.content || 'I didn\'t understand that command. Try something like "Add urgent task to clean garage" or "Show completed tasks only".'
-      });
+      // If no function call detected, default to creating a todo with the user's text
+      const fallbackTodo = {
+        type: 'function_call',
+        function: 'create_todos',
+        arguments: {
+          todos: [{
+            title: command.trim(),
+            priority: 'medium'
+          }]
+        },
+        preview: {
+          title: 'Create 1 new todo',
+          description: `• ${command.trim()}`,
+          action: 'create'
+        },
+        raw_command: command
+      };
+      return NextResponse.json(fallbackTodo);
     }
 
     const functionCall = choice.message.function_call;
@@ -193,7 +220,7 @@ Other Examples:
       type: 'function_call',
       function: functionCall.name,
       arguments: functionArgs,
-      preview: generatePreview(functionCall.name, functionArgs, todos || []),
+      preview: generatePreview(functionCall.name, functionArgs),
       raw_command: command
     });
 
@@ -214,16 +241,21 @@ interface CreateTodosArgs {
   }>;
 }
 
-interface ShowTodosArgs {
-  todoIds: string[];
-  reasoning?: string;
+interface FilterTodosArgs {
+  criteria: {
+    keyword?: string;
+    priority?: string;
+    completed?: boolean;
+    assignedToMe?: boolean;
+    createdByMe?: boolean;
+  };
 }
 
 interface CompleteTodosArgs {
   criteria: string;
 }
 
-function generatePreview(functionName: string, args: CreateTodosArgs | ShowTodosArgs | CompleteTodosArgs, allTodos: any[] = []) {
+function generatePreview(functionName: string, args: CreateTodosArgs | FilterTodosArgs | CompleteTodosArgs) {
   switch (functionName) {
     case 'create_todos':
       const createArgs = args as CreateTodosArgs;
@@ -235,17 +267,17 @@ function generatePreview(functionName: string, args: CreateTodosArgs | ShowTodos
         action: 'create'
       };
     
-    case 'show_todos':
-      const showArgs = args as ShowTodosArgs;
-      const todoIds = showArgs.todoIds;
-      const todoTitlesForPreview = todoIds.map(id => {
-        const todo = allTodos.find((t: any) => t.id === id);
-        return todo ? `• ${todo.title}` : `• Todo ID ${id}`;
-      }).join('\n');
+    case 'filter_todos':
+      const filterArgs = args as FilterTodosArgs;
+      const criteria = filterArgs.criteria;
+      const filters = Object.entries(criteria)
+        .filter(([, value]) => value !== undefined)
+        .map(([key, value]) => `${key}: ${value}`)
+        .join(', ');
       return {
-        title: `Display ${todoIds.length} todo${todoIds.length > 1 ? 's' : ''}`,
-        description: todoTitlesForPreview,
-        action: 'show'
+        title: 'Filter todos',
+        description: `Show todos matching: ${filters}`,
+        action: 'filter'
       };
     
     case 'complete_todos':
