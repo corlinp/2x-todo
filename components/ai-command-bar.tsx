@@ -3,11 +3,8 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Sparkles, Send, X, Check, Loader2 } from "lucide-react";
+import { Sparkles, Send, Check, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { UserAvatar } from "./user-avatar";
 
 interface User {
   id: string;
@@ -17,9 +14,11 @@ interface User {
   full_name?: string;
 }
 
-
-
-
+interface AITodo {
+  title: string;
+  priority?: string;
+  assignedUserEmail?: string;
+}
 
 interface AICommandBarProps {
   availableUsers: User[];
@@ -28,46 +27,25 @@ interface AICommandBarProps {
   onCompleteTodos: (criteria: string) => Promise<void>;
 }
 
-interface PreviewData {
-  type: 'function_call' | 'message';
-  function?: string;
-  arguments?: {
-    todos?: Array<{
-      title: string;
-      priority?: string;
-      assignedUserEmail?: string;
-    }>;
-    todoIds?: string[];
-    criteria?: string;
-    reasoning?: string;
-  };
-  preview?: {
-    title: string;
-    description: string;
-    action: string;
-  };
-  content?: string;
-  raw_command: string;
-}
-
 export function AICommandBar({ availableUsers, onCreateTodos, onShowTodos, onCompleteTodos }: AICommandBarProps) {
   const [command, setCommand] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [previewData, setPreviewData] = useState<PreviewData | null>(null);
-  const [isApplying, setIsApplying] = useState(false);
+  const [lastExecuted, setLastExecuted] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!command.trim() || isLoading) return;
 
     setIsLoading(true);
+    const currentCommand = command.trim();
+    
     try {
       const response = await fetch('/api/ai/commands', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ command: command.trim() }),
+        body: JSON.stringify({ command: currentCommand }),
       });
 
       if (!response.ok) {
@@ -75,75 +53,52 @@ export function AICommandBar({ availableUsers, onCreateTodos, onShowTodos, onCom
       }
 
       const data = await response.json();
-      setPreviewData(data);
+      
+      // Automatically execute the command
+      if (data.type === 'function_call') {
+        switch (data.function) {
+          case 'create_todos':
+            const todosToCreate = data.arguments?.todos?.map((todo: AITodo) => {
+              const assignedUser = todo.assignedUserEmail 
+                ? availableUsers.find(u => u.email === todo.assignedUserEmail)
+                : undefined;
+              
+              return {
+                title: todo.title,
+                assignedUserId: assignedUser?.id
+              };
+            });
+            if (todosToCreate) {
+              await onCreateTodos(todosToCreate);
+            }
+            break;
+          
+          case 'show_todos':
+            if (data.arguments?.todoIds && data.arguments.todoIds.length > 0) {
+              onShowTodos(data.arguments.todoIds);
+            }
+            break;
+          
+          case 'complete_todos':
+            if (data.arguments?.criteria && typeof data.arguments.criteria === 'string') {
+              await onCompleteTodos(data.arguments.criteria);
+            }
+            break;
+        }
+        
+        // Show success message and clear command
+        setLastExecuted(currentCommand);
+        setCommand("");
+        
+        // Clear success message after 3 seconds
+        setTimeout(() => setLastExecuted(null), 3000);
+      }
     } catch (error) {
       console.error('Error processing command:', error);
-      setPreviewData({
-        type: 'message',
-        content: 'Sorry, I couldn\'t process that command. Please try again.',
-        raw_command: command
-      });
+      setLastExecuted(`Error: ${currentCommand}`);
+      setTimeout(() => setLastExecuted(null), 3000);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleApply = async () => {
-    if (!previewData || previewData.type !== 'function_call') return;
-
-    setIsApplying(true);
-    try {
-      switch (previewData.function) {
-        case 'create_todos':
-          const todosToCreate = previewData.arguments?.todos?.map((todo) => {
-            const assignedUser = todo.assignedUserEmail 
-              ? availableUsers.find(u => u.email === todo.assignedUserEmail)
-              : undefined;
-            
-            return {
-              title: todo.title,
-              assignedUserId: assignedUser?.id
-            };
-          });
-          if (todosToCreate) {
-            await onCreateTodos(todosToCreate);
-          }
-          break;
-        
-        case 'show_todos':
-          if (previewData.arguments?.todoIds && previewData.arguments.todoIds.length > 0) {
-            onShowTodos(previewData.arguments.todoIds);
-          }
-          break;
-        
-        case 'complete_todos':
-          if (previewData.arguments?.criteria && typeof previewData.arguments.criteria === 'string') {
-            await onCompleteTodos(previewData.arguments.criteria);
-          }
-          break;
-      }
-      
-      // Clear the command and preview
-      setCommand("");
-      setPreviewData(null);
-    } catch (error) {
-      console.error('Error applying command:', error);
-    } finally {
-      setIsApplying(false);
-    }
-  };
-
-  const handleCancel = () => {
-    setPreviewData(null);
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'urgent': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-      case 'high': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
-      case 'medium': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
-      case 'low': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
     }
   };
 
@@ -176,115 +131,29 @@ export function AICommandBar({ availableUsers, onCreateTodos, onShowTodos, onCom
           </Button>
         </form>
 
-        {/* In-line Preview */}
+        {/* Success Message */}
         <AnimatePresence>
-          {previewData && (
+          {lastExecuted && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="mt-4"
+              className="mt-3 p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg"
             >
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-sm">
-                    <Sparkles className="w-4 h-4 text-purple-500" />
-                    {previewData.type === 'function_call' ? 'AI Command Preview' : 'AI Response'}
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    &ldquo;{previewData.raw_command}&rdquo;
-                  </CardDescription>
-                </CardHeader>
-                
-                <CardContent className="pt-0 pb-3">
-                  {previewData.type === 'function_call' && previewData.preview ? (
-                    <div className="space-y-3">
-                      <div>
-                        <h3 className="font-medium text-sm text-muted-foreground mb-2">
-                          {previewData.preview.title}
-                        </h3>
-                        <div className="text-sm whitespace-pre-line">
-                          {previewData.preview.description}
-                        </div>
-                      </div>
-                      
-                      {/* Show additional details for create_todos */}
-                      {previewData.function === 'create_todos' && previewData.arguments?.todos && (
-                        <div className="space-y-2">
-                          <h4 className="text-xs font-medium text-muted-foreground">Todo Details:</h4>
-                          {previewData.arguments.todos?.map((todo, index: number) => (
-                            <div key={index} className="flex items-center gap-2 text-sm p-2 bg-muted rounded">
-                              <div className="flex-1">{todo.title}</div>
-                              <div className="flex gap-2 items-center">
-                                {todo.priority && (
-                                  <Badge variant="secondary" className={getPriorityColor(todo.priority)}>
-                                    {todo.priority}
-                                  </Badge>
-                                )}
-                                {todo.assignedUserEmail && (
-                                  <div className="flex items-center gap-1">
-                                    {(() => {
-                                      const assignedUser = availableUsers.find(u => u.email === todo.assignedUserEmail);
-                                      if (assignedUser) {
-                                        return (
-                                          <>
-                                            <UserAvatar user={assignedUser} size="sm" />
-                                            <span className="text-xs text-muted-foreground">
-                                              {assignedUser.name || assignedUser.full_name || assignedUser.email.split('@')[0]}
-                                            </span>
-                                          </>
-                                        );
-                                      }
-                                      return (
-                                        <span className="text-xs text-muted-foreground">
-                                          {todo.assignedUserEmail}
-                                        </span>
-                                      );
-                                    })()}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+              <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-300">
+                <Check className="w-4 h-4" />
+                <span>
+                  {lastExecuted.startsWith('Error:') ? (
+                    <span className="text-red-700 dark:text-red-300">
+                      Failed to process: &ldquo;{lastExecuted.replace('Error: ', '')}&rdquo;
+                    </span>
                   ) : (
-                    <div className="text-sm text-muted-foreground">
-                      {previewData.content}
-                    </div>
+                    <span>
+                      Executed: &ldquo;{lastExecuted}&rdquo;
+                    </span>
                   )}
-                </CardContent>
-
-                <CardFooter className="flex gap-2 pt-0">
-                  <Button
-                    variant="outline"
-                    onClick={handleCancel}
-                    className="flex-1"
-                    disabled={isApplying}
-                    size="sm"
-                  >
-                    <X className="w-3 h-3 mr-1" />
-                    Cancel
-                  </Button>
-                  
-                  {previewData.type === 'function_call' && (
-                    <Button
-                      onClick={handleApply}
-                      className="flex-1 bg-purple-600 hover:bg-purple-700"
-                      disabled={isApplying}
-                      size="sm"
-                    >
-                      {isApplying ? (
-                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                      ) : (
-                        <Check className="w-3 h-3 mr-1" />
-                      )}
-                      Apply
-                    </Button>
-                  )}
-                </CardFooter>
-              </Card>
+                </span>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
