@@ -61,9 +61,15 @@ export function TodoCard({ todo, onComplete, onDelete, onUpdate, assignedUser }:
     if (shouldComplete && !todo.completed) {
       setIsProcessing(true);
       try {
-        // Animate to completion position
-        await x.set(300);
-        onComplete(todo.id);
+        // Animate to completion position, then reset
+        await new Promise<void>((resolve) => {
+          x.set(300);
+          setTimeout(() => {
+            onComplete(todo.id);
+            x.set(0); // Reset position immediately after completion
+            resolve();
+          }, 200);
+        });
       } catch (error) {
         console.error('Error completing todo:', error);
         x.set(0);
@@ -74,8 +80,13 @@ export function TodoCard({ todo, onComplete, onDelete, onUpdate, assignedUser }:
       setIsProcessing(true);
       try {
         // Animate to delete position
-        await x.set(-300);
-        onDelete(todo.id);
+        await new Promise<void>((resolve) => {
+          x.set(-300);
+          setTimeout(() => {
+            onDelete(todo.id);
+            resolve();
+          }, 200);
+        });
       } catch (error) {
         console.error('Error deleting todo:', error);
         x.set(0);
@@ -151,7 +162,7 @@ export function TodoCard({ todo, onComplete, onDelete, onUpdate, assignedUser }:
         )}
       >
         <div className="flex items-center gap-3 p-4">
-          {/* Drag handle */}
+          {/* Drag handle for reordering */}
           <div className="opacity-30 group-hover:opacity-60 transition-opacity pointer-events-none">
             <GripVertical className="w-4 h-4 text-muted-foreground" />
           </div>

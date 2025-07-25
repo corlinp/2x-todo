@@ -86,7 +86,7 @@ export function TodoBoard() {
           event: '*',
           schema: 'public',
           table: 'todos',
-          filter: `user_id=eq.${user.id}`
+          filter: `or(user_id.eq.${user.id},assigned_user_id.eq.${user.id})`
         },
         (payload) => {
           if (payload.eventType === 'INSERT') {
