@@ -1,50 +1,74 @@
-import { DeployButton } from "@/components/deploy-button";
-import { EnvVarWarning } from "@/components/env-var-warning";
 import { AuthButton } from "@/components/auth-button";
-import { Hero } from "@/components/hero";
-import { ThemeSwitcher } from "@/components/theme-switcher";
-import { ConnectSupabaseSteps } from "@/components/tutorial/connect-supabase-steps";
-import { SignUpUserSteps } from "@/components/tutorial/sign-up-user-steps";
-import { hasEnvVars } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 
-export default function Home() {
+export default async function Home() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // If user is authenticated, redirect to todos
+  if (user) {
+    redirect("/protected");
+  }
+
   return (
     <main className="min-h-screen flex flex-col items-center">
       <div className="flex-1 w-full flex flex-col gap-20 items-center">
         <nav className="w-full flex justify-center border-b border-b-foreground/10 h-16">
           <div className="w-full max-w-5xl flex justify-between items-center p-3 px-5 text-sm">
             <div className="flex gap-5 items-center font-semibold">
-              <Link href={"/"}>Next.js Supabase Starter</Link>
-              <div className="flex items-center gap-2">
-                <DeployButton />
-              </div>
+              <Link href={"/"}>2xTODO</Link>
             </div>
-            {!hasEnvVars ? <EnvVarWarning /> : <AuthButton />}
+            <AuthButton />
           </div>
         </nav>
         <div className="flex-1 flex flex-col gap-20 max-w-5xl p-5">
-          <Hero />
-          <main className="flex-1 flex flex-col gap-6 px-4">
-            <h2 className="font-medium text-xl mb-4">Next steps</h2>
-            {hasEnvVars ? <SignUpUserSteps /> : <ConnectSupabaseSteps />}
-          </main>
+          <div className="flex flex-col items-center text-center space-y-6">
+            <h1 className="text-6xl font-bold tracking-tight">2xTODO</h1>
+            <p className="text-xl text-muted-foreground max-w-2xl">
+              Double your productivity with a minimalist, real-time, AI-assisted to-do board
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 mt-8">
+              <Link 
+                href="/auth/sign-up"
+                className="bg-primary text-primary-foreground px-6 py-3 rounded-lg font-medium hover:opacity-90 transition-opacity"
+              >
+                Get Started
+              </Link>
+              <Link 
+                href="/auth/login"
+                className="border border-border px-6 py-3 rounded-lg font-medium hover:bg-accent transition-colors"
+              >
+                Sign In
+              </Link>
+            </div>
+          </div>
+          
+          <div className="grid gap-8 md:grid-cols-3 text-center">
+            <div className="space-y-2">
+              <div className="text-2xl">👆</div>
+              <h3 className="font-semibold">Natural Gestures</h3>
+              <p className="text-sm text-muted-foreground">
+                Swipe right to complete, swipe left to delete, long-press to reorder
+              </p>
+            </div>
+            <div className="space-y-2">
+              <div className="text-2xl">⚡</div>
+              <h3 className="font-semibold">Real-time Sync</h3>
+              <p className="text-sm text-muted-foreground">
+                Changes sync instantly across all your devices
+              </p>
+            </div>
+            <div className="space-y-2">
+              <div className="text-2xl">📱</div>
+              <h3 className="font-semibold">Mobile First</h3>
+              <p className="text-sm text-muted-foreground">
+                Designed for touch, optimized for speed
+              </p>
+            </div>
+          </div>
         </div>
-
-        <footer className="w-full flex items-center justify-center border-t mx-auto text-center text-xs gap-8 py-16">
-          <p>
-            Powered by{" "}
-            <a
-              href="https://supabase.com/?utm_source=create-next-app&utm_medium=template&utm_term=nextjs"
-              target="_blank"
-              className="font-bold hover:underline"
-              rel="noreferrer"
-            >
-              Supabase
-            </a>
-          </p>
-          <ThemeSwitcher />
-        </footer>
       </div>
     </main>
   );

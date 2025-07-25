@@ -1,105 +1,113 @@
-<a href="https://demo-nextjs-with-supabase.vercel.app/">
-  <img alt="Next.js and Supabase Starter Kit - the fastest way to build apps with Next.js and Supabase" src="https://demo-nextjs-with-supabase.vercel.app/opengraph-image.png">
-  <h1 align="center">Next.js and Supabase Starter Kit</h1>
-</a>
+# 2xTODO - Double Your Productivity
 
-<p align="center">
- The fastest way to build apps with Next.js and Supabase
-</p>
+A minimalist, real-time, AI-assisted to-do board built with Next.js 15, Supabase, and shadcn/ui.
 
-<p align="center">
-  <a href="#features"><strong>Features</strong></a> ·
-  <a href="#demo"><strong>Demo</strong></a> ·
-  <a href="#deploy-to-vercel"><strong>Deploy to Vercel</strong></a> ·
-  <a href="#clone-and-run-locally"><strong>Clone and run locally</strong></a> ·
-  <a href="#feedback-and-issues"><strong>Feedback and issues</strong></a>
-  <a href="#more-supabase-examples"><strong>More Examples</strong></a>
-</p>
-<br/>
+## ✨ Features
 
-## Features
+- **Zero-friction board**: A single, vertically stacked column of task cards—nothing to configure, instantly familiar
+- **Natural gestures**:
+  - 👉 Swipe right → mark complete
+  - 👈 Swipe left → delete
+  - ✏️ Double-tap → edit
+  - 🔄 Long-press + drag → reorder with smooth animations
+- **Real-time sync**: Changes sync instantly across all your devices
+- **Mobile-first**: Optimized for touch with buttery-smooth interactions
+- **Secure**: User authentication with Row Level Security (RLS)
 
-- Works across the entire [Next.js](https://nextjs.org) stack
-  - App Router
-  - Pages Router
-  - Middleware
-  - Client
-  - Server
-  - It just works!
-- supabase-ssr. A package to configure Supabase Auth to use cookies
-- Password-based authentication block installed via the [Supabase UI Library](https://supabase.com/ui/docs/nextjs/password-based-auth)
-- Styling with [Tailwind CSS](https://tailwindcss.com)
-- Components with [shadcn/ui](https://ui.shadcn.com/)
-- Optional deployment with [Supabase Vercel Integration and Vercel deploy](#deploy-your-own)
-  - Environment variables automatically assigned to Vercel project
+## 🚀 Quick Start
 
-## Demo
+### Prerequisites
 
-You can view a fully working demo at [demo-nextjs-with-supabase.vercel.app](https://demo-nextjs-with-supabase.vercel.app/).
+- Node.js 18+ and npm/yarn/pnpm
+- A [Supabase](https://supabase.com) account and project
 
-## Deploy to Vercel
+### 1. Clone and Install
 
-Vercel deployment will guide you through creating a Supabase account and project.
+```bash
+git clone <your-repo-url>
+cd 2xai
+npm install
+```
 
-After installation of the Supabase integration, all relevant environment variables will be assigned to the project so the deployment is fully functioning.
+### 2. Configure Environment Variables
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fnext.js%2Ftree%2Fcanary%2Fexamples%2Fwith-supabase&project-name=nextjs-with-supabase&repository-name=nextjs-with-supabase&demo-title=nextjs-with-supabase&demo-description=This+starter+configures+Supabase+Auth+to+use+cookies%2C+making+the+user%27s+session+available+throughout+the+entire+Next.js+app+-+Client+Components%2C+Server+Components%2C+Route+Handlers%2C+Server+Actions+and+Middleware.&demo-url=https%3A%2F%2Fdemo-nextjs-with-supabase.vercel.app%2F&external-id=https%3A%2F%2Fgithub.com%2Fvercel%2Fnext.js%2Ftree%2Fcanary%2Fexamples%2Fwith-supabase&demo-image=https%3A%2F%2Fdemo-nextjs-with-supabase.vercel.app%2Fopengraph-image.png)
+Create a `.env.local` file in the root directory:
 
-The above will also clone the Starter kit to your GitHub, you can clone that locally and develop locally.
+```env
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
 
-If you wish to just develop locally and not deploy to Vercel, [follow the steps below](#clone-and-run-locally).
+Both values can be found in your [Supabase project's API settings](https://supabase.com/dashboard/project/_/settings/api).
 
-## Clone and run locally
+### 3. Set Up Database
 
-1. You'll first need a Supabase project which can be made [via the Supabase dashboard](https://database.new)
+In your Supabase dashboard, go to the SQL Editor and run the contents of `supabase-schema.sql`:
 
-2. Create a Next.js app using the Supabase Starter template npx command
+```sql
+-- This will create the todos table, enable RLS, set up policies, and configure real-time subscriptions
+```
 
-   ```bash
-   npx create-next-app --example with-supabase with-supabase-app
-   ```
+### 4. Run Development Server
 
-   ```bash
-   yarn create next-app --example with-supabase with-supabase-app
-   ```
+```bash
+npm run dev
+```
 
-   ```bash
-   pnpm create next-app --example with-supabase with-supabase-app
-   ```
+Open [http://localhost:3000](http://localhost:3000) to see 2xTODO in action!
 
-3. Use `cd` to change into the app's directory
+## 📱 How to Use
 
-   ```bash
-   cd with-supabase-app
-   ```
+1. **Sign up** or **sign in** with email or Google
+2. **Add todos** by typing in the input field and pressing Enter
+3. **Complete todos** by swiping right ➡️
+4. **Delete todos** by swiping left ⬅️
+5. **Edit todos** by double-tapping the text
+6. **Reorder todos** by long-pressing and dragging
 
-4. Rename `.env.example` to `.env.local` and update the following:
+## 🛠 Tech Stack
 
-   ```
-   NEXT_PUBLIC_SUPABASE_URL=[INSERT SUPABASE PROJECT URL]
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=[INSERT SUPABASE PROJECT API ANON KEY]
-   ```
+- **Frontend**: Next.js 15, React 19, TypeScript
+- **Styling**: Tailwind CSS, shadcn/ui
+- **Animations**: Framer Motion
+- **Backend**: Supabase (Auth + Database + Real-time)
+- **Gestures**: Custom touch handlers for mobile-first UX
 
-   Both `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` can be found in [your Supabase project's API settings](https://supabase.com/dashboard/project/_?showConnect=true)
+## 🚀 Deployment
 
-5. You can now run the Next.js local development server:
+### Deploy to Vercel
 
-   ```bash
-   npm run dev
-   ```
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/your-username/2xai)
 
-   The starter kit should now be running on [localhost:3000](http://localhost:3000/).
+1. Connect your GitHub repository
+2. Add your Supabase environment variables
+3. Deploy!
 
-6. This template comes with the default shadcn/ui style initialized. If you instead want other ui.shadcn styles, delete `components.json` and [re-install shadcn/ui](https://ui.shadcn.com/docs/installation/next)
+### Deploy Anywhere
 
-> Check out [the docs for Local Development](https://supabase.com/docs/guides/getting-started/local-development) to also run Supabase locally.
+```bash
+npm run build
+npm start
+```
 
-## Feedback and issues
+## 🔒 Security
 
-Please file feedback and issues over on the [Supabase GitHub org](https://github.com/supabase/supabase/issues/new/choose).
+- Row Level Security (RLS) ensures users only see their own todos
+- Secure authentication with Supabase Auth
+- Real-time subscriptions are user-scoped
 
-## More Supabase examples
+## 🤝 Contributing
 
-- [Next.js Subscription Payments Starter](https://github.com/vercel/nextjs-subscription-payments)
-- [Cookie-based Auth and the Next.js 13 App Router (free course)](https://youtube.com/playlist?list=PL5S4mPUpp4OtMhpnp93EFSo42iQ40XjbF)
-- [Supabase Auth and the Next.js App Router](https://github.com/supabase/supabase/tree/master/examples/auth/nextjs)
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+Built with ❤️ for productivity enthusiasts. Double your productivity with 2xTODO!
