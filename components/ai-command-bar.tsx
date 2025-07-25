@@ -30,7 +30,7 @@ interface FilterCriteria {
 interface AICommandBarProps {
   availableUsers: User[];
   onCreateTodos: (todos: Array<{title: string, assignedUserId?: string}>) => Promise<void>;
-  onFilterTodos: (criteria: FilterCriteria) => void;
+  onShowTodos: (todoIds: string[]) => void;
   onCompleteTodos: (criteria: string) => Promise<void>;
 }
 
@@ -43,7 +43,9 @@ interface PreviewData {
       priority?: string;
       assignedUserEmail?: string;
     }>;
-    criteria?: FilterCriteria | string;
+    todoIds?: string[];
+    criteria?: string;
+    reasoning?: string;
   };
   preview?: {
     title: string;
@@ -54,7 +56,7 @@ interface PreviewData {
   raw_command: string;
 }
 
-export function AICommandBar({ availableUsers, onCreateTodos, onFilterTodos, onCompleteTodos }: AICommandBarProps) {
+export function AICommandBar({ availableUsers, onCreateTodos, onShowTodos, onCompleteTodos }: AICommandBarProps) {
   const [command, setCommand] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
@@ -114,9 +116,9 @@ export function AICommandBar({ availableUsers, onCreateTodos, onFilterTodos, onC
           }
           break;
         
-        case 'filter_todos':
-          if (previewData.arguments?.criteria && typeof previewData.arguments.criteria !== 'string') {
-            onFilterTodos(previewData.arguments.criteria);
+        case 'show_todos':
+          if (previewData.arguments?.todoIds && previewData.arguments.todoIds.length > 0) {
+            onShowTodos(previewData.arguments.todoIds);
           }
           break;
         

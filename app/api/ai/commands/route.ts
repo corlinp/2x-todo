@@ -41,39 +41,25 @@ const functions = [
     }
   },
   {
-    name: 'filter_todos',
-    description: 'Filter and display todos based on criteria',
+    name: 'show_todos',
+    description: 'Display specific todos by analyzing all available todos and returning the IDs that match the user request',
     parameters: {
       type: 'object',
       properties: {
-        criteria: {
-          type: 'object',
-          properties: {
-            keyword: {
-              type: 'string',
-              description: 'Keyword to search for in todo titles'
-            },
-            priority: {
-              type: 'string',
-              enum: ['low', 'medium', 'high', 'urgent'],
-              description: 'Filter by priority level'
-            },
-            completed: {
-              type: 'boolean',
-              description: 'Filter by completion status'
-            },
-            assignedToMe: {
-              type: 'boolean',
-              description: 'Show only todos assigned to current user'
-            },
-            createdByMe: {
-              type: 'boolean',
-              description: 'Show only todos created by current user'
-            }
-          }
+        todoIds: {
+          type: 'array',
+          items: {
+            type: 'string',
+            description: 'ID of a todo to display'
+          },
+          description: 'Array of todo IDs to display to the user'
+        },
+        reasoning: {
+          type: 'string',
+          description: 'Brief explanation of why these todos were selected'
         }
       },
-      required: ['criteria']
+      required: ['todoIds']
     }
   },
   {
@@ -159,7 +145,8 @@ Guidelines:
 - For multiple todos in one command, create separate items
 - For user assignment, look for patterns like "assign to [name]", "for [name]", "[name] should do", "give [name]"
 - Match user assignments to available emails (case-insensitive, partial matches OK)
-- For filtering, interpret natural language into specific criteria
+- For showing/filtering todos, analyze ALL available todos in the context and return the specific IDs that match the user's request
+- Use show_todos to display specific todos based on any criteria (keyword, priority, status, assignment, etc.)
 - Always preserve the user's original intent while making it actionable
 
 User Assignment Examples:
@@ -168,10 +155,15 @@ User Assignment Examples:
 "Give the meeting prep to mike" → assign to closest matching email containing "mike"
 "John should clean the kitchen and Mary should take out trash" → 2 todos with respective assignments
 
+Show/Filter Examples:
+"Show kitchen chores only" → show_todos with IDs of todos containing "kitchen"
+"Show urgent tasks" → show_todos with IDs of todos with high/urgent priority
+"Show my completed tasks" → show_todos with IDs of completed todos assigned to current user
+"Show everything Sarah is working on" → show_todos with IDs of todos assigned to Sarah
+
 Other Examples:
 "Add 'Clean the gutters' urgent" → create_todos with high priority
 "I need to clean the kitchen and take out trash" → create_todos with 2 items
-"Show kitchen chores only" → filter_todos with keyword "kitchen"
 "Complete all urgent tasks" → complete_todos with criteria "urgent"`
         },
         {
@@ -201,7 +193,7 @@ Other Examples:
       type: 'function_call',
       function: functionCall.name,
       arguments: functionArgs,
-      preview: generatePreview(functionCall.name, functionArgs),
+      preview: generatePreview(functionCall.name, functionArgs, todos || []),
       raw_command: command
     });
 
@@ -222,21 +214,16 @@ interface CreateTodosArgs {
   }>;
 }
 
-interface FilterTodosArgs {
-  criteria: {
-    keyword?: string;
-    priority?: string;
-    completed?: boolean;
-    assignedToMe?: boolean;
-    createdByMe?: boolean;
-  };
+interface ShowTodosArgs {
+  todoIds: string[];
+  reasoning?: string;
 }
 
 interface CompleteTodosArgs {
   criteria: string;
 }
 
-function generatePreview(functionName: string, args: CreateTodosArgs | FilterTodosArgs | CompleteTodosArgs) {
+function generatePreview(functionName: string, args: CreateTodosArgs | ShowTodosArgs | CompleteTodosArgs, allTodos: any[] = []) {
   switch (functionName) {
     case 'create_todos':
       const createArgs = args as CreateTodosArgs;
@@ -248,17 +235,17 @@ function generatePreview(functionName: string, args: CreateTodosArgs | FilterTod
         action: 'create'
       };
     
-    case 'filter_todos':
-      const filterArgs = args as FilterTodosArgs;
-      const criteria = filterArgs.criteria;
-      const filters = Object.entries(criteria)
-        .filter(([, value]) => value !== undefined)
-        .map(([key, value]) => `${key}: ${value}`)
-        .join(', ');
+    case 'show_todos':
+      const showArgs = args as ShowTodosArgs;
+      const todoIds = showArgs.todoIds;
+      const todoTitlesForPreview = todoIds.map(id => {
+        const todo = allTodos.find((t: any) => t.id === id);
+        return todo ? `• ${todo.title}` : `• Todo ID ${id}`;
+      }).join('\n');
       return {
-        title: 'Filter todos',
-        description: `Show todos matching: ${filters}`,
-        action: 'filter'
+        title: `Display ${todoIds.length} todo${todoIds.length > 1 ? 's' : ''}`,
+        description: todoTitlesForPreview,
+        action: 'show'
       };
     
     case 'complete_todos':

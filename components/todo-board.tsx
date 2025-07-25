@@ -40,6 +40,7 @@ export function TodoBoard() {
   const [isAdding, setIsAdding] = useState(false);
   const [availableUsers, setAvailableUsers] = useState<User[]>([]);
   const [currentFilter, setCurrentFilter] = useState<FilterCriteria | null>(null);
+  const [shownTodoIds, setShownTodoIds] = useState<string[] | null>(null);
   const supabase = createClient();
 
   const loadTodos = useCallback(async () => {
@@ -328,6 +329,13 @@ export function TodoBoard() {
       loadTodos();
     }
   };
+
+  // AI-powered todo display
+  const showTodos = useCallback((todoIds: string[]) => {
+    setShownTodoIds(todoIds);
+    const filteredTodos = allTodos.filter(todo => todoIds.includes(todo.id));
+    setTodos(filteredTodos);
+  }, [allTodos]);
 
   if (isLoading) {
     return (
