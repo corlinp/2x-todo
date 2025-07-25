@@ -4,12 +4,22 @@ import { useState } from "react";
 import { motion, PanInfo } from "framer-motion";
 import { Check, Trash2, GripVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { UserAvatar } from "./user-avatar";
 
 interface Todo {
   id: string;
   title: string;
   completed: boolean;
   order_index: number;
+  assigned_user_id: string | null;
+}
+
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+  avatar_url?: string;
+  full_name?: string;
 }
 
 interface TodoCardProps {
@@ -17,9 +27,10 @@ interface TodoCardProps {
   onComplete: (id: string) => void;
   onDelete: (id: string) => void;
   onUpdate: (id: string, title: string) => void;
+  assignedUser?: User;
 }
 
-export function TodoCard({ todo, onComplete, onDelete, onUpdate }: TodoCardProps) {
+export function TodoCard({ todo, onComplete, onDelete, onUpdate, assignedUser }: TodoCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(todo.title);
   const [dragX, setDragX] = useState(0);
@@ -100,14 +111,26 @@ export function TodoCard({ todo, onComplete, onDelete, onUpdate }: TodoCardProps
                 />
               </form>
             ) : (
-              <div
-                className={cn(
-                  "text-sm cursor-pointer py-1",
-                  todo.completed && "line-through text-muted-foreground"
+              <div className="flex items-center gap-2">
+                <div className="flex-1">
+                  <div
+                    className={cn(
+                      "text-sm cursor-pointer py-1",
+                      todo.completed && "line-through text-muted-foreground"
+                    )}
+                    onDoubleClick={() => !todo.completed && setIsEditing(true)}
+                  >
+                    {todo.title}
+                  </div>
+                  {assignedUser && (
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Assigned to {assignedUser.name || assignedUser.full_name || assignedUser.email}
+                    </div>
+                  )}
+                </div>
+                {assignedUser && (
+                  <UserAvatar user={assignedUser} size="sm" />
                 )}
-                onDoubleClick={() => !todo.completed && setIsEditing(true)}
-              >
-                {todo.title}
               </div>
             )}
           </div>

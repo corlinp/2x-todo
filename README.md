@@ -4,7 +4,9 @@ A minimalist, real-time, AI-assisted to-do board built with Next.js 15, Supabase
 
 ## ✨ Features
 
+- **AI Command Bar**: Type natural language commands like "Tell Sarah to clean garage urgent" or "Show completed tasks only" - GPT-4o parses your intent, understands user assignments, and previews changes before applying them
 - **Zero-friction board**: A single, vertically stacked column of task cards—nothing to configure, instantly familiar
+- **Smart user assignment**: Assign todos via AI commands ("Give Mike the meeting prep") or manual dropdown selection, with visual avatars showing initials
 - **Natural gestures**:
   - 👉 Swipe right → mark complete
   - 👈 Swipe left → delete
@@ -36,17 +38,28 @@ Create a `.env.local` file in the root directory:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+OPENAI_API_KEY=your_openai_api_key
 ```
 
-Both values can be found in your [Supabase project's API settings](https://supabase.com/dashboard/project/_/settings/api).
+The Supabase values can be found in your [Supabase project's API settings](https://supabase.com/dashboard/project/_/settings/api).
+
+For the OpenAI API key, get one from your [OpenAI dashboard](https://platform.openai.com/api-keys).
 
 ### 3. Set Up Database
 
 In your Supabase dashboard, go to the SQL Editor and run the contents of `supabase-schema.sql`:
 
 ```sql
--- This will create the todos table, enable RLS, set up policies, and configure real-time subscriptions
+-- This will create the todos table, profiles table with Google profile data,
+-- enable RLS, set up policies, configure real-time subscriptions,
+-- and automatically sync Google profile pictures and names from OAuth
 ```
+
+The schema includes:
+- **Todos table** with user assignment support
+- **Profiles table** that automatically syncs Google profile data (names, avatars)
+- **Triggers** that keep profiles updated when users sign in with Google
+- **RLS policies** for secure data access
 
 ### 4. Run Development Server
 
@@ -59,15 +72,24 @@ Open [http://localhost:3000](http://localhost:3000) to see 2xTODO in action!
 ## 📱 How to Use
 
 1. **Sign up** or **sign in** with email or Google
-2. **Add todos** by typing in the input field and pressing Enter
-3. **Complete todos** by swiping right ➡️
-4. **Delete todos** by swiping left ⬅️
-5. **Edit todos** by double-tapping the text
-6. **Reorder todos** by long-pressing and dragging
+2. **Use AI commands** with natural language:
+   - "Add urgent task to clean garage" → Creates a high-priority todo
+   - "Tell Sarah to review the documents" → Creates todo assigned to Sarah
+   - "John should clean kitchen and Mary take out trash" → Creates 2 todos with assignments
+   - "I need to clean the kitchen and take out trash" → Creates 2 separate todos
+   - "Show kitchen chores only" → Filters todos by keyword
+   - "Complete all urgent tasks" → Marks matching todos as done
+3. **Add todos manually** by typing in the input field and pressing Enter
+4. **Assign todos** to team members using the "Assign to user" dropdown (if users are available)
+5. **Complete todos** by swiping right ➡️ (works for both owned and assigned todos)
+6. **Delete todos** by swiping left ⬅️
+7. **Edit todos** by double-tapping the text
+8. **Reorder todos** by long-pressing and dragging
 
 ## 🛠 Tech Stack
 
 - **Frontend**: Next.js 15, React 19, TypeScript
+- **AI**: OpenAI GPT-4o with function calling for natural language processing
 - **Styling**: Tailwind CSS, shadcn/ui
 - **Animations**: Framer Motion
 - **Backend**: Supabase (Auth + Database + Real-time)
@@ -92,9 +114,10 @@ npm start
 
 ## 🔒 Security
 
-- Row Level Security (RLS) ensures users only see their own todos
+- Row Level Security (RLS) ensures users only see their own todos and todos assigned to them
 - Secure authentication with Supabase Auth
 - Real-time subscriptions are user-scoped
+- Assignment permissions: only todo creators can assign todos to others
 
 ## 🤝 Contributing
 

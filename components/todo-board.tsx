@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { TodoCard } from "./todo-card";
 import { AddTodoForm } from "./add-todo-form";
-import { motion, AnimatePresence, Reorder } from "framer-motion";
+import { AICommandBar } from "./ai-command-bar";
+import { AnimatePresence, Reorder } from "framer-motion";
 
 interface Todo {
   id: string;
@@ -13,20 +14,35 @@ interface Todo {
   order_index: number;
   created_at: string;
   user_id: string;
+  assigned_user_id: string | null;
+}
+
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+  avatar_url?: string;
+  full_name?: string;
+}
+
+interface FilterCriteria {
+  keyword?: string;
+  priority?: string;
+  completed?: boolean;
+  assignedToMe?: boolean;
+  createdByMe?: boolean;
 }
 
 export function TodoBoard() {
   const [todos, setTodos] = useState<Todo[]>([]);
+  const [allTodos, setAllTodos] = useState<Todo[]>([]); // Store all todos for filtering
   const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
+  const [availableUsers, setAvailableUsers] = useState<User[]>([]);
+  const [currentFilter, setCurrentFilter] = useState<FilterCriteria | null>(null);
   const supabase = createClient();
 
-  useEffect(() => {
-    loadTodos();
-    setupRealtimeSubscription();
-  }, []);
-
-  const loadTodos = async () => {
+  const loadTodos = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -34,19 +50,38 @@ export function TodoBoard() {
       const { data, error } = await supabase
         .from('todos')
         .select('*')
-        .eq('user_id', user.id)
+        .or(`user_id.eq.${user.id},assigned_user_id.eq.${user.id}`)
         .order('order_index');
 
       if (error) throw error;
-      setTodos(data || []);
+      const todosData = data || [];
+      setAllTodos(todosData);
+      setTodos(todosData);
     } catch (error) {
       console.error('Error loading todos:', error);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [supabase]);
 
-  const setupRealtimeSubscription = async () => {
+  const loadUsers = useCallback(async () => {
+    try {
+      // Use our API endpoint to get users with Google profile data
+      const response = await fetch('/api/users');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch users');
+      }
+      
+      const data = await response.json();
+      setAvailableUsers(data.users || []);
+    } catch (error) {
+      console.error('Error loading users:', error);
+      // The API endpoint handles all fallbacks, so if it fails, users just won't be available for assignment
+    }
+  }, []);
+
+  const setupRealtimeSubscription = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
@@ -62,12 +97,19 @@ export function TodoBoard() {
         },
         (payload) => {
           if (payload.eventType === 'INSERT') {
-            setTodos(prev => [...prev, payload.new as Todo].sort((a, b) => a.order_index - b.order_index));
+            const newTodo = payload.new as Todo;
+            setAllTodos(prev => [...prev, newTodo].sort((a, b) => a.order_index - b.order_index));
+            setTodos(prev => [...prev, newTodo].sort((a, b) => a.order_index - b.order_index));
           } else if (payload.eventType === 'UPDATE') {
+            const updatedTodo = payload.new as Todo;
+            setAllTodos(prev => prev.map(todo => 
+              todo.id === updatedTodo.id ? updatedTodo : todo
+            ).sort((a, b) => a.order_index - b.order_index));
             setTodos(prev => prev.map(todo => 
-              todo.id === payload.new.id ? payload.new as Todo : todo
+              todo.id === updatedTodo.id ? updatedTodo : todo
             ).sort((a, b) => a.order_index - b.order_index));
           } else if (payload.eventType === 'DELETE') {
+            setAllTodos(prev => prev.filter(todo => todo.id !== payload.old.id));
             setTodos(prev => prev.filter(todo => todo.id !== payload.old.id));
           }
         }
@@ -77,15 +119,21 @@ export function TodoBoard() {
     return () => {
       supabase.removeChannel(channel);
     };
-  };
+  }, [supabase]);
 
-  const addTodo = async (title: string) => {
+  useEffect(() => {
+    loadTodos();
+    loadUsers();
+    setupRealtimeSubscription();
+  }, [loadTodos, loadUsers, setupRealtimeSubscription]);
+
+  const addTodo = async (title: string, assignedUserId?: string) => {
     try {
       setIsAdding(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const maxOrder = Math.max(...todos.map(t => t.order_index), 0);
+      const maxOrder = Math.max(...allTodos.map(t => t.order_index), 0);
       
       const { error } = await supabase
         .from('todos')
@@ -93,7 +141,8 @@ export function TodoBoard() {
           title,
           completed: false,
           order_index: maxOrder + 1,
-          user_id: user.id
+          user_id: user.id,
+          assigned_user_id: assignedUserId || null
         });
 
       if (error) throw error;
@@ -101,6 +150,111 @@ export function TodoBoard() {
       console.error('Error adding todo:', error);
     } finally {
       setIsAdding(false);
+    }
+  };
+
+  // AI-powered batch todo creation
+  const createTodos = async (todosToCreate: Array<{title: string, assignedUserId?: string}>) => {
+    try {
+      setIsAdding(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const startOrder = Math.max(...allTodos.map(t => t.order_index), 0);
+      
+      const todosData = todosToCreate.map((todo, index) => ({
+        title: todo.title,
+        completed: false,
+        order_index: startOrder + index + 1,
+        user_id: user.id,
+        assigned_user_id: todo.assignedUserId || null
+      }));
+
+      const { error } = await supabase
+        .from('todos')
+        .insert(todosData);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error creating todos:', error);
+      throw error;
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
+  // AI-powered filtering
+  const applyFilter = useCallback(async (todoList: Todo[], criteria: FilterCriteria) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    return todoList.filter(todo => {
+      if (criteria.keyword && !todo.title.toLowerCase().includes(criteria.keyword.toLowerCase())) {
+        return false;
+      }
+      if (criteria.completed !== undefined && todo.completed !== criteria.completed) {
+        return false;
+      }
+      if (criteria.assignedToMe !== undefined && user) {
+        return criteria.assignedToMe ? todo.assigned_user_id === user.id : todo.assigned_user_id !== user.id;
+      }
+      if (criteria.createdByMe !== undefined && user) {
+        return criteria.createdByMe ? todo.user_id === user.id : todo.user_id !== user.id;
+      }
+      return true;
+    });
+  }, [supabase]);
+
+  const filterTodos = useCallback(async (criteria: FilterCriteria) => {
+    setCurrentFilter(criteria);
+    const filtered = await applyFilter(allTodos, criteria);
+    setTodos(filtered);
+  }, [allTodos, applyFilter]);
+
+  const clearFilter = () => {
+    setCurrentFilter(null);
+    setTodos(allTodos);
+  };
+
+  // AI-powered batch completion
+  const completeTodos = async (criteria: string) => {
+    try {
+      // For now, implement basic keyword matching
+      // In a more sophisticated implementation, you could use AI to parse criteria
+      const todosToComplete = allTodos.filter(todo => {
+        if (!todo.completed) {
+          const lowerCriteria = criteria.toLowerCase();
+          const lowerTitle = todo.title.toLowerCase();
+          
+          // Simple keyword matching - can be enhanced with AI
+          if (lowerCriteria.includes('urgent') || lowerCriteria.includes('high priority')) {
+            return lowerTitle.includes('urgent') || lowerTitle.includes('important');
+          }
+          if (lowerCriteria.includes('kitchen')) {
+            return lowerTitle.includes('kitchen');
+          }
+          if (lowerCriteria.includes('all')) {
+            return true;
+          }
+          
+          return lowerTitle.includes(lowerCriteria);
+        }
+        return false;
+      });
+
+      if (todosToComplete.length === 0) {
+        throw new Error('No todos found matching the criteria');
+      }
+
+      // Update all matching todos
+      for (const todo of todosToComplete) {
+        await supabase
+          .from('todos')
+          .update({ completed: true })
+          .eq('id', todo.id);
+      }
+    } catch (error) {
+      console.error('Error completing todos:', error);
+      throw error;
     }
   };
 
@@ -150,6 +304,11 @@ export function TodoBoard() {
     // Update local state immediately for smooth UX
     setTodos(newOrder);
     
+    // Also update allTodos if no filter is applied
+    if (!currentFilter) {
+      setAllTodos(newOrder);
+    }
+    
     try {
       // Update order_index for each todo in the database
       const updates = newOrder.map((todo, index) => ({
@@ -187,12 +346,41 @@ export function TodoBoard() {
         </p>
       </div>
 
-      <AddTodoForm onAdd={addTodo} isLoading={isAdding} />
+             <AICommandBar 
+         availableUsers={availableUsers}
+         onCreateTodos={createTodos}
+         onFilterTodos={filterTodos}
+         onCompleteTodos={completeTodos}
+       />
+
+      <AddTodoForm onAdd={addTodo} isLoading={isAdding} availableUsers={availableUsers} />
+
+      {currentFilter && (
+        <div className="mb-4 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+          <div className="flex items-center justify-between">
+            <div className="text-sm">
+              <span className="font-medium text-purple-900 dark:text-purple-100">Filter active:</span>
+              <span className="ml-1 text-purple-700 dark:text-purple-300">
+                {Object.entries(currentFilter)
+                  .filter(([, value]) => value !== undefined)
+                  .map(([key, value]) => `${key}: ${value}`)
+                  .join(', ')}
+              </span>
+            </div>
+            <button
+              onClick={clearFilter}
+              className="text-xs text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-200 font-medium"
+            >
+              Clear filter
+            </button>
+          </div>
+        </div>
+      )}
 
       {todos.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
           <p className="text-lg mb-2">🎯</p>
-          <p>No todos yet. Add your first task above!</p>
+          <p>{currentFilter ? 'No todos match your filter.' : 'No todos yet. Add your first task above!'}</p>
         </div>
       ) : (
         <Reorder.Group
@@ -209,6 +397,11 @@ export function TodoBoard() {
                   onComplete={completeTodo}
                   onDelete={deleteTodo}
                   onUpdate={updateTodo}
+                  assignedUser={
+                    todo.assigned_user_id 
+                      ? availableUsers.find(u => u.id === todo.assigned_user_id)
+                      : undefined
+                  }
                 />
               </Reorder.Item>
             ))}
