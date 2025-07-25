@@ -4,9 +4,9 @@ A minimalist, real-time, AI-assisted to-do board built with Next.js 15, Supabase
 
 ## ✨ Features
 
-- **AI Command Bar**: Type natural language commands like "Tell Sarah to clean garage urgent" or "Show completed tasks only" - GPT-4o parses your intent, understands user assignments, and previews changes before applying them
+- **AI-First Interface**: Pure AI command bar - no manual input needed! Type natural language commands like "Tell Sarah to clean garage urgent" or "Show completed tasks only" - GPT-4o parses your intent, understands user assignments, and previews changes before applying them
 - **Zero-friction board**: A single, vertically stacked column of task cards—nothing to configure, instantly familiar
-- **Smart user assignment**: Assign todos via AI commands ("Give Mike the meeting prep") or manual dropdown selection, with visual avatars showing initials
+- **Smart user assignment**: Assign todos via AI commands only ("Give Mike the meeting prep"), with visual avatars showing initials
 - **Natural gestures**:
   - 👉 Swipe right → mark complete
   - 👈 Swipe left → delete
@@ -72,19 +72,17 @@ Open [http://localhost:3000](http://localhost:3000) to see 2xTODO in action!
 ## 📱 How to Use
 
 1. **Sign up** or **sign in** with email or Google
-2. **Use AI commands** with natural language:
+2. **Use AI commands** with natural language - this is the only way to interact with your todos:
    - "Add urgent task to clean garage" → Creates a high-priority todo
    - "Tell Sarah to review the documents" → Creates todo assigned to Sarah
    - "John should clean kitchen and Mary take out trash" → Creates 2 todos with assignments
    - "I need to clean the kitchen and take out trash" → Creates 2 separate todos
    - "Show kitchen chores only" → Filters todos by keyword
    - "Complete all urgent tasks" → Marks matching todos as done
-3. **Add todos manually** by typing in the input field and pressing Enter
-4. **Assign todos** to team members using the "Assign to user" dropdown (if users are available)
-5. **Complete todos** by swiping right ➡️ (works for both owned and assigned todos)
-6. **Delete todos** by swiping left ⬅️
-7. **Edit todos** by double-tapping the text
-8. **Reorder todos** by long-pressing and dragging
+3. **Complete todos** by swiping right ➡️ (works for both owned and assigned todos)
+4. **Delete todos** by swiping left ⬅️
+5. **Edit todos** by double-tapping the text
+6. **Reorder todos** by long-pressing and dragging
 
 ## 🛠 Tech Stack
 

@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { TodoCard } from "./todo-card";
-import { AddTodoForm } from "./add-todo-form";
 import { AICommandBar } from "./ai-command-bar";
 import { AnimatePresence, Reorder } from "framer-motion";
 
@@ -31,7 +30,6 @@ export function TodoBoard() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [allTodos, setAllTodos] = useState<Todo[]>([]); // Store all todos for filtering
   const [isLoading, setIsLoading] = useState(true);
-  const [isAdding, setIsAdding] = useState(false);
   const [availableUsers, setAvailableUsers] = useState<User[]>([]);
 
   const [shownTodoIds, setShownTodoIds] = useState<string[] | null>(null);
@@ -122,36 +120,9 @@ export function TodoBoard() {
     setupRealtimeSubscription();
   }, [loadTodos, loadUsers, setupRealtimeSubscription]);
 
-  const addTodo = async (title: string, assignedUserId?: string) => {
-    try {
-      setIsAdding(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const maxOrder = Math.max(...allTodos.map(t => t.order_index), 0);
-      
-      const { error } = await supabase
-        .from('todos')
-        .insert({
-          title,
-          completed: false,
-          order_index: maxOrder + 1,
-          user_id: user.id,
-          assigned_user_id: assignedUserId || null
-        });
-
-      if (error) throw error;
-    } catch (error) {
-      console.error('Error adding todo:', error);
-    } finally {
-      setIsAdding(false);
-    }
-  };
-
   // AI-powered batch todo creation
   const createTodos = async (todosToCreate: Array<{title: string, assignedUserId?: string}>) => {
     try {
-      setIsAdding(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
@@ -173,8 +144,6 @@ export function TodoBoard() {
     } catch (error) {
       console.error('Error creating todos:', error);
       throw error;
-    } finally {
-      setIsAdding(false);
     }
   };
 
@@ -225,30 +194,65 @@ export function TodoBoard() {
 
   const completeTodo = async (id: string) => {
     try {
-      const todo = todos.find(t => t.id === id);
-      if (!todo) return;
+      const todo = allTodos.find(t => t.id === id);
+      if (!todo) {
+        console.warn('Todo not found:', id);
+        return;
+      }
+
+      // Optimistic update - update both filtered and all todos
+      const updateTodo = (todosList: Todo[]) => 
+        todosList.map(t => t.id === id ? { ...t, completed: !t.completed } : t);
+      
+      const optimisticTodos = updateTodo(todos);
+      const optimisticAllTodos = updateTodo(allTodos);
+      
+      setTodos(optimisticTodos);
+      setAllTodos(optimisticAllTodos);
 
       const { error } = await supabase
         .from('todos')
         .update({ completed: !todo.completed })
         .eq('id', id);
 
-      if (error) throw error;
+      if (error) {
+        // Revert optimistic update on error - real-time will fix it too
+        console.error('Failed to update todo, reverting:', error);
+        throw error;
+      }
     } catch (error) {
       console.error('Error updating todo:', error);
+      // Real-time subscription will revert to correct state
     }
   };
 
   const deleteTodo = async (id: string) => {
     try {
+      const todoExists = allTodos.find(t => t.id === id);
+      if (!todoExists) {
+        console.warn('Todo not found for deletion:', id);
+        return;
+      }
+
+      // Optimistic update - remove from both lists immediately
+      const removeTodo = (todosList: Todo[]) => todosList.filter(t => t.id !== id);
+      
+      setTodos(removeTodo(todos));
+      setAllTodos(removeTodo(allTodos));
+
       const { error } = await supabase
         .from('todos')
         .delete()
         .eq('id', id);
 
-      if (error) throw error;
+      if (error) {
+        // Revert optimistic update on error - real-time will fix it too
+        console.error('Failed to delete todo, reverting:', error);
+        throw error;
+      }
     } catch (error) {
       console.error('Error deleting todo:', error);
+      // Real-time subscription will revert to correct state
     }
   };
 
@@ -316,21 +320,12 @@ export function TodoBoard() {
 
   return (
     <div className="w-full max-w-md mx-auto">
-      <div className="mb-6 text-center">
-        <h1 className="text-2xl font-bold mb-2">Your Todos</h1>
-        <p className="text-sm text-muted-foreground">
-          Swipe right to complete • Swipe left to delete • Double-tap to edit • Long-press to reorder
-        </p>
-      </div>
-
-             <AICommandBar 
+       <AICommandBar 
          availableUsers={availableUsers}
          onCreateTodos={createTodos}
          onShowTodos={showTodos}
          onCompleteTodos={completeTodos}
        />
-
-      <AddTodoForm onAdd={addTodo} isLoading={isAdding} availableUsers={availableUsers} />
 
       {shownTodoIds && (
         <div className="mb-4 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
@@ -354,7 +349,7 @@ export function TodoBoard() {
       {todos.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
           <p className="text-lg mb-2">🎯</p>
-          <p>{shownTodoIds ? 'No todos match your selection.' : 'No todos yet. Add your first task above!'}</p>
+          <p>{shownTodoIds ? 'No todos match your selection.' : 'Use AI commands to get started!'}</p>
         </div>
       ) : (
         <Reorder.Group
